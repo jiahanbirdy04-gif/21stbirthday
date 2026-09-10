@@ -1,387 +1,299 @@
-/* ============================================================
-   Noy's 21st — script.js
-   ============================================================ */
-
 (function () {
   "use strict";
 
-  /* ---------------- Cake SVG (shared, parameterized by id suffix) ---------------- */
-
-  function cakeSVG(suffix) {
-    return `
-    <svg viewBox="0 0 220 220" width="100%" height="100%" style="display:block" xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="110" cy="188" rx="72" ry="10" fill="#1E1B16" opacity="0.06"/>
-      <!-- plate -->
-      <ellipse cx="110" cy="176" rx="66" ry="9" fill="#FBF4E3" stroke="#1E1B16" stroke-width="1.6"/>
-      <!-- bottom tier -->
-      <rect x="52" y="128" width="116" height="48" rx="10" fill="#F3E8D2" stroke="#1E1B16" stroke-width="1.6"/>
-      <rect x="52" y="128" width="116" height="14" rx="7" fill="#FBF4E3" stroke="#1E1B16" stroke-width="1.2"/>
-      <!-- top tier -->
-      <rect x="72" y="92" width="76" height="42" rx="9" fill="#F3E8D2" stroke="#1E1B16" stroke-width="1.6"/>
-      <rect x="72" y="92" width="76" height="12" rx="6" fill="#FBF4E3" stroke="#1E1B16" stroke-width="1.2"/>
-      <!-- drip dots -->
-      <circle cx="86" cy="106" r="3.5" fill="none" stroke="#1E1B16" stroke-width="1.3"/>
-      <circle cx="110" cy="104" r="3.5" fill="none" stroke="#1E1B16" stroke-width="1.3"/>
-      <circle cx="134" cy="106" r="3.5" fill="none" stroke="#1E1B16" stroke-width="1.3"/>
-      <!-- candle -->
-      <rect x="104" y="66" width="10" height="28" rx="2" fill="#FBF4E3" stroke="#1E1B16" stroke-width="1.4"/>
-      <rect x="104" y="66" width="10" height="6" fill="none" stroke="#1E1B16" stroke-width="1.2"/>
-      <!-- flame -->
-      <g id="flame-${suffix}" class="flame">
-        <path d="M109 44c6 7 9 12 9 17a9 9 0 1 1-18 0c0-5 3-10 9-17z" fill="#D98C86"/>
-        <path d="M109 52c3 4 4.5 7 4.5 9.5a4.5 4.5 0 1 1-9 0c0-2.5 1.5-5.5 4.5-9.5z" fill="#E9C6C2"/>
-      </g>
-      <!-- smoke (hidden until blown) -->
-      <g id="smoke-${suffix}" class="smoke">
-        <path d="M109 40c-4-4-4-9 0-13" stroke="#6E6759" stroke-width="2.4" fill="none" stroke-linecap="round"/>
-      </g>
-    </svg>`;
-  }
-
-  document.getElementById("landing-cake").innerHTML = cakeSVG("landing");
-  document.getElementById("finale-cake").innerHTML = cakeSVG("finale");
-
-  /* ---------------- Page navigation ---------------- */
-
-  const pages = Array.from(document.querySelectorAll(".page"));
-  function getPage(name) { return document.getElementById("page-" + name); }
-
-  function goTo(name) {
-    const current = document.querySelector(".page.is-active");
-    const next = getPage(name);
-    if (!next || next === current) return;
-
-    if (current) {
-      current.classList.add("is-leaving");
-      current.classList.remove("is-active");
+  // ---------------------------------------------------------------
+  // Navigation
+  // ---------------------------------------------------------------
+  function showView(name) {
+    document.querySelectorAll(".view").forEach((el) => el.classList.remove("is-active"));
+    const target = document.getElementById("view-" + name);
+    if (target) {
+      // restart the entrance animation each time
+      target.style.animation = "none";
+      // force reflow
+      void target.offsetWidth;
+      target.style.animation = "";
+      target.classList.add("is-active");
     }
-    // allow layout to settle, then activate next
-    requestAnimationFrame(() => {
-      next.classList.add("is-active");
-      requestAnimationFrame(() => {
-        if (current) current.classList.remove("is-leaving");
-      });
-    });
-
-    // lazy-init per-page content the first time it's visited
-    initPage(name);
+    if (name === "flowers") animateQuotes();
+    window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
   }
 
-  document.getElementById("landing-cake-btn").addEventListener("click", () => goTo("menu"));
-
-  document.querySelectorAll("[data-goto]").forEach((btn) => {
-    btn.addEventListener("click", () => goTo(btn.getAttribute("data-goto")));
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-goto]");
+    if (!btn) return;
+    showView(btn.getAttribute("data-goto"));
   });
 
-  document.querySelectorAll("[data-back]").forEach((btn) => {
-    btn.addEventListener("click", () => goTo("menu"));
-  });
-
-  /* ---------------- Per-page lazy init ---------------- */
-
-  const initialized = new Set();
-
-  function initPage(name) {
-    if (initialized.has(name)) return;
-    initialized.add(name);
-
-    if (name === "photos") initPhotos();
-    if (name === "music") initMusic();
-    if (name === "flowers") initFlowers();
-  }
-
-  /* ---------------- Photos: lazy-loaded scattered gallery + lightbox ---------------- */
-
+  // ---------------------------------------------------------------
+  // Photos: vertical feed
+  // ---------------------------------------------------------------
   function initPhotos() {
-    const grid = document.getElementById("photo-grid");
+    const feed = document.getElementById("photo-feed");
+    if (!feed) return;
     const photos = (window.MEDIA && MEDIA.photos) || [];
-
-    if (photos.length === 0) {
-      grid.innerHTML = `<p class="empty-note">photos will show up here once they're added — check that assets/media.js on the live site actually has your photos array filled in.</p>`;
+    if (!photos.length) {
+      feed.innerHTML = `<div class="photo-fallback">no photos added yet</div>`;
       return;
     }
-
-    photos.forEach((photo, i) => {
-      const card = document.createElement("button");
-      card.className = "photo-card";
-      card.setAttribute("aria-label", photo.caption || `Photo ${i + 1}`);
-
+    photos.forEach((p, i) => {
       const img = document.createElement("img");
-      img.dataset.src = photo.src;
-      img.alt = photo.caption || `Photo ${i + 1}`;
-      img.loading = "lazy"; // native lazy-load as a baseline
-      img.width = 400;
-      img.height = 300;
-      img.addEventListener("error", () => {
-        card.classList.add("photo-card-broken");
-        card.innerHTML = `<div class="photo-fallback">photo didn't load</div>`;
-      });
-
-      card.appendChild(img);
-      card.addEventListener("click", () => openLightbox(photo.src, img.alt));
-      grid.appendChild(card);
+      img.loading = "lazy";
+      img.alt = p.caption || `Photo ${i + 1}`;
+      img.src = p.src;
+      img.onerror = () => {
+        const fb = document.createElement("div");
+        fb.className = "photo-fallback";
+        fb.textContent = "photo didn't load";
+        img.replaceWith(fb);
+      };
+      feed.appendChild(img);
     });
-
-    // IntersectionObserver: only fetch full src when a card nears viewport
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const img = entry.target;
-            if (img.dataset.src) {
-              img.src = img.dataset.src;
-              img.removeAttribute("data-src");
-            }
-            io.unobserve(img);
-          }
-        });
-      },
-      { root: document.querySelector(".subpage-body"), rootMargin: "300px 0px" }
-    );
-
-    grid.querySelectorAll("img[data-src]").forEach((img) => io.observe(img));
   }
 
-  const lightbox = document.getElementById("lightbox");
-  const lightboxImg = document.getElementById("lightbox-img");
-
-  function openLightbox(src, alt) {
-    lightboxImg.src = src;
-    lightboxImg.alt = alt || "";
-    lightbox.classList.add("is-open");
+  // ---------------------------------------------------------------
+  // Music: custom pink player
+  // ---------------------------------------------------------------
+  function fmtTime(sec) {
+    if (!isFinite(sec)) return "0:00";
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
   }
-  document.getElementById("lightbox-close").addEventListener("click", closeLightbox);
-  lightbox.addEventListener("click", (e) => { if (e.target === lightbox) closeLightbox(); });
-  function closeLightbox() {
-    lightbox.classList.remove("is-open");
-    lightboxImg.src = "";
-  }
-
-  /* ---------------- Music ---------------- */
 
   function initMusic() {
-    const m = (window.MEDIA && MEDIA.music) || {};
-    const featured = m.featured || {};
-    document.getElementById("featured-title").textContent = featured.title || "Untitled";
-    document.getElementById("featured-artist").textContent = featured.artist || "";
+    const card = document.getElementById("music-card");
+    if (!card) return;
+    const music = (window.MEDIA && MEDIA.music) || { featured: {}, tracklist: [] };
+    const f = music.featured || {};
+    const tracklist = music.tracklist || [];
 
-    const slot = document.getElementById("featured-embed-slot");
-    if (featured.embedUrl) {
-      const iframe = document.createElement("iframe");
-      iframe.className = "music-embed";
-      iframe.src = featured.embedUrl;
-      iframe.allow = "autoplay; encrypted-media";
-      iframe.loading = "lazy";
-      slot.appendChild(iframe);
+    const tracklistHTML = tracklist.length
+      ? `<ul class="tracklist">${tracklist
+          .map(
+            (t) => `<li><span class="t-title">${t.title || ""}</span><span class="t-artist">${t.artist || ""}</span></li>`
+          )
+          .join("")}</ul>`
+      : "";
+
+    if (f.audioSrc) {
+      // real, fully custom playable audio
+      card.innerHTML = `
+        <div class="scrubber">
+          <input type="range" id="music-seek" min="0" max="100" value="0" step="0.1" aria-label="Seek">
+        </div>
+        <div class="player-controls">
+          <button id="music-prev" aria-label="Restart"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zM20 6v12l-8.5-6z"/></svg></button>
+          <button id="music-play" class="play-btn" aria-label="Play"><svg id="music-play-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+          <button id="music-next" aria-label="Next"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM4 6v12l8.5-6z"/></svg></button>
+        </div>
+        <p class="music-title">${f.title || "Untitled"}</p>
+        <p class="music-artist">${f.artist || ""}</p>
+        ${tracklistHTML}
+      `;
+      const audio = document.getElementById("feature-audio");
+      audio.src = f.audioSrc;
+      const seek = document.getElementById("music-seek");
+      const playBtn = document.getElementById("music-play");
+      const playIcon = document.getElementById("music-play-icon");
+
+      audio.addEventListener("loadedmetadata", () => { seek.max = audio.duration || 100; });
+      audio.addEventListener("timeupdate", () => { if (!seek.matches(":active")) seek.value = audio.currentTime; });
+      seek.addEventListener("input", () => { audio.currentTime = seek.value; });
+
+      playBtn.addEventListener("click", () => {
+        if (audio.paused) {
+          audio.play().catch(() => {});
+          playIcon.innerHTML = `<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>`;
+        } else {
+          audio.pause();
+          playIcon.innerHTML = `<path d="M8 5v14l11-7z"/>`;
+        }
+      });
+      document.getElementById("music-prev").addEventListener("click", () => { audio.currentTime = 0; });
+    } else if (f.embedUrl) {
+      card.innerHTML = `
+        <iframe src="${f.embedUrl}" style="width:100%;min-height:152px;border:none;border-radius:10px;" allow="autoplay; encrypted-media" loading="lazy"></iframe>
+        <p class="music-title" style="margin-top:14px;">${f.title || "Untitled"}</p>
+        <p class="music-artist">${f.artist || ""}</p>
+        ${tracklistHTML}
+      `;
     } else {
-      const ph = document.createElement("div");
-      ph.className = "music-embed-placeholder";
-      ph.textContent = "Featured track embed goes here — paste an embed URL into MEDIA.music.featured.embedUrl";
-      slot.appendChild(ph);
+      card.innerHTML = `
+        <div class="player-controls">
+          <button class="play-btn" disabled aria-label="No audio yet"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+        </div>
+        <p class="music-title">${f.title || "Untitled"}</p>
+        <p class="music-artist">${f.artist || ""}</p>
+        ${tracklistHTML}
+      `;
     }
+  }
 
-    const list = document.getElementById("tracklist");
-    const tracks = m.tracklist || [];
-    if (tracks.length === 0) {
-      list.innerHTML = `<li class="empty-note">no tracks yet — add some in Studio's Music section and make sure assets/media.js on the live site got updated.</li>`;
+  // ---------------------------------------------------------------
+  // Flowers: quote pills + rose bouquet
+  // ---------------------------------------------------------------
+  function initFlowers() {
+    const stack = document.getElementById("quote-stack");
+    const notes = (window.MEDIA && MEDIA.flowerNotes) || [];
+    if (stack) {
+      stack.innerHTML = notes.map((n) => `<div class="quote-pill">${n}</div>`).join("");
     }
-    tracks.forEach((track, i) => {
-      const li = document.createElement("li");
-      li.innerHTML = `
-        <span class="track-index">${String(i + 1).padStart(2, "0")}</span>
-        <span>
-          <div class="track-title">${escapeHTML(track.title)}</div>
-          <div class="track-artist">${escapeHTML(track.artist || "")}</div>
-        </span>`;
-      list.appendChild(li);
+    const wrap = document.getElementById("bouquet-wrap");
+    if (wrap && !wrap.dataset.built) {
+      wrap.innerHTML = roseBouquetSVG();
+      wrap.dataset.built = "1";
+    }
+  }
+
+  function animateQuotes() {
+    const pills = document.querySelectorAll(".quote-pill");
+    pills.forEach((el, i) => {
+      el.classList.remove("is-shown");
+      void el.offsetWidth;
+      el.style.animationDelay = `${i * 130}ms`;
+      requestAnimationFrame(() => el.classList.add("is-shown"));
     });
   }
 
-  /* ---------------- Flowers: an actual wrapped bouquet ---------------- */
-
-  // a small cluster of overlapping rounded petals — reads like a hyacinth /
-  // hydrangea spray of tiny blooms rather than one big flat flower
-  function clusterMarkup(cx, cy, color, count, spread) {
-    let out = "";
-    for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2 + (i % 2) * 0.3;
-      const dist = spread * (0.35 + 0.65 * ((i * 53) % 100) / 100);
-      const x = cx + Math.cos(angle) * dist;
-      const y = cy + Math.sin(angle) * dist * 0.85;
-      const r = spread * 0.32 * (0.75 + ((i * 37) % 100) / 200);
-      out += `<circle class="bq-dot" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="${color}" stroke="#1E1B16" stroke-width="0.8"/>`;
+  function roseBlossom(cx, cy, r, color, colorDeep) {
+    // layered swirl petals approximating a rose bloom
+    let rings = "";
+    const layers = [
+      { rr: r, rot: 0 },
+      { rr: r * 0.72, rot: 24 },
+      { rr: r * 0.46, rot: -18 },
+      { rr: r * 0.24, rot: 10 },
+    ];
+    layers.forEach((l, i) => {
+      rings += `<circle cx="${cx}" cy="${cy}" r="${l.rr}" fill="${i % 2 === 0 ? color : colorDeep}" opacity="${0.92 - i * 0.06}" transform="rotate(${l.rot} ${cx} ${cy})"/>`;
+    });
+    // petal notches for texture
+    let petals = "";
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const px = cx + Math.cos(a) * r * 0.62;
+      const py = cy + Math.sin(a) * r * 0.62;
+      petals += `<ellipse cx="${px}" cy="${py}" rx="${r * 0.38}" ry="${r * 0.26}" fill="${colorDeep}" opacity="0.5" transform="rotate(${(a * 180) / Math.PI} ${px} ${py})"/>`;
     }
-    return out;
+    return `<g stroke="#5C1A1A" stroke-width="0.6">${petals}${rings}<circle cx="${cx}" cy="${cy}" r="${r * 0.16}" fill="${colorDeep}"/></g>`;
   }
 
-  // a single tulip-cup bloom on a thin stem, for taller accents poking above the spray
-  function tulipMarkup(cx, topY, stemLen, color) {
-    const bottomY = topY + stemLen;
-    return `
-      <line x1="${cx}" y1="${topY + 22}" x2="${cx}" y2="${bottomY}" stroke="#8FA37E" stroke-width="2.4" stroke-linecap="round"/>
-      <path d="M${cx - 11} ${topY + 20} Q${cx - 13} ${topY + 2} ${cx - 5} ${topY - 6}
-               Q${cx} ${topY - 10} ${cx + 5} ${topY - 6}
-               Q${cx + 13} ${topY + 2} ${cx + 11} ${topY + 20}
-               Q${cx} ${topY + 26} ${cx - 11} ${topY + 20} Z"
-            fill="${color}" stroke="#1E1B16" stroke-width="1"/>`;
+  function leafShape(x, y, len, rot) {
+    return `<path d="M${x} ${y} Q${x - len * 0.4} ${y - len * 0.3} ${x} ${y - len} Q${x + len * 0.4} ${y - len * 0.3} ${x} ${y} Z" fill="#5C7A4E" stroke="#3E5735" stroke-width="0.8" transform="rotate(${rot} ${x} ${y})"/>`;
   }
 
-  const CLUSTERS = [
-    { cx: 96,  cy: 118, color: "#B9A8D9", count: 10, spread: 26 },
-    { cx: 168, cy: 108, color: "#E9C97A", count: 9,  spread: 24 },
-    { cx: 66,  cy: 148, color: "#FBF4E3", count: 8,  spread: 22 },
-    { cx: 200, cy: 142, color: "#E3B0A9", count: 9,  spread: 23 },
-    { cx: 132, cy: 138, color: "#E9B7BE", count: 8,  spread: 21 },
-    { cx: 40,  cy: 122, color: "#D98C86", count: 7,  spread: 18 },
-    { cx: 224, cy: 116, color: "#B9A8D9", count: 7,  spread: 18 },
-    { cx: 150, cy: 160, color: "#FBF4E3", count: 6,  spread: 17 },
-    { cx: 82,  cy: 90,  color: "#E9C97A", count: 6,  spread: 16 },
-  ];
-
-  const TULIPS = [
-    { cx: 92,  topY: 40, stemLen: 66, color: "#B9A8D9" },
-    { cx: 132, topY: 26, stemLen: 82, color: "#FBF4E3" },
-    { cx: 168, topY: 42, stemLen: 64, color: "#E9C97A" },
-    { cx: 200, topY: 58, stemLen: 48, color: "#E3B0A9" },
-    { cx: 60,  topY: 62, stemLen: 46, color: "#E9B7BE" },
-  ];
-
-  // a small pointed accent leaf, for tucking in among the blooms up top
-  function sprigLeaf(cx, cy, len, rot, color) {
-    return `<path d="M${cx} ${cy} Q${cx - len * 0.35} ${cy - len * 0.4} ${cx} ${cy - len} Q${cx + len * 0.35} ${cy - len * 0.4} ${cx} ${cy} Z" fill="${color}" stroke="#1E1B16" stroke-width="0.8" transform="rotate(${rot} ${cx} ${cy})" opacity="0.9"/>`;
-  }
-
-  function bouquetSVG() {
-    const clustersMarkup = CLUSTERS.map((c, i) => `
-      <g class="bq-flower" id="bq-f${i}">
-        ${clusterMarkup(c.cx, c.cy, c.color, c.count, c.spread)}
-      </g>`).join("");
-
-    const tulipsMarkup = TULIPS.map((t, i) => `
-      <g class="bq-flower" id="bq-t${i}">
-        ${tulipMarkup(t.cx, t.topY, t.stemLen, t.color)}
-      </g>`).join("");
-
-    const sprigs = [
-      sprigLeaf(52, 128, 30, -25, "#8FA37E"),
-      sprigLeaf(238, 124, 28, 22, "#9CB18F"),
-      sprigLeaf(112, 78, 22, -10, "#8FA37E"),
-      sprigLeaf(188, 84, 22, 14, "#9CB18F"),
+  function roseBouquetSVG() {
+    const roses = [
+      { cx: 110, cy: 96, r: 26, c: "#C24444", d: "#8C2A2A" },
+      { cx: 158, cy: 88, r: 24, c: "#B23A3A", d: "#7E2222" },
+      { cx: 84, cy: 122, r: 22, c: "#CB5252", d: "#932E2E" },
+      { cx: 186, cy: 118, r: 22, c: "#B23A3A", d: "#7E2222" },
+      { cx: 134, cy: 68, r: 21, c: "#C24444", d: "#8C2A2A" },
+      { cx: 60, cy: 150, r: 18, c: "#CB5252", d: "#932E2E" },
+      { cx: 210, cy: 148, r: 18, c: "#B23A3A", d: "#7E2222" },
+      { cx: 135, cy: 132, r: 20, c: "#A83232", d: "#701E1E" },
+    ];
+    const roseMarkup = roses.map((r) => roseBlossom(r.cx, r.cy, r.r, r.c, r.d)).join("");
+    const leaves = [
+      leafShape(70, 168, 34, -20),
+      leafShape(220, 164, 32, 18),
+      leafShape(135, 172, 30, 2),
+      leafShape(100, 178, 26, -8),
+      leafShape(190, 176, 26, 10),
     ].join("");
 
     return `
-    <svg class="bq-sway-group" viewBox="0 0 300 360" width="100%" height="100%" style="display:block" xmlns="http://www.w3.org/2000/svg">
-      <!-- big leaves, tucked behind the flowers -->
-      <path class="bq-leaf" id="bq-leaf1" style="--lr:-18deg" d="M85 170 C 40 158, 24 220, 56 250 C 63 210, 70 190, 85 170 Z" fill="#8FA37E" stroke="#1E1B16" stroke-width="1"/>
-      <path class="bq-leaf" id="bq-leaf2" style="--lr:16deg" d="M215 170 C 262 160, 274 220, 240 250 C 233 210, 226 190, 215 170 Z" fill="#8FA37E" stroke="#1E1B16" stroke-width="1"/>
-      <path class="bq-leaf" id="bq-leaf3" style="--lr:2deg" d="M150 160 C 150 200, 150 230, 150 264 C 136 230, 136 190, 150 160 Z" fill="#8FA37E" stroke="#1E1B16" stroke-width="1"/>
-      <path class="bq-leaf" id="bq-leaf4" style="--lr:-8deg" d="M110 178 C 92 190, 88 218, 106 236 C 108 214, 112 196, 110 178 Z" fill="#9CB18F" stroke="#1E1B16" stroke-width="0.9"/>
-      <path class="bq-leaf" id="bq-leaf5" style="--lr:9deg" d="M192 178 C 210 190, 214 218, 196 236 C 194 214, 190 196, 192 178 Z" fill="#9CB18F" stroke="#1E1B16" stroke-width="0.9"/>
-
-      <!-- taller tulip accents, small sprigs, then the clustered spray in front -->
-      ${tulipsMarkup}
-      ${sprigs}
-      ${clustersMarkup}
-
-      <!-- kraft paper wrap, in front over the stems -->
-      <g class="bq-wrap" id="bq-wrap">
-        <path d="M44 190 L256 190 L212 336 Q150 358 88 336 Z" fill="#D8B888" stroke="#8A6A3E" stroke-width="2"/>
-        <path d="M44 190 L150 250 L256 190" fill="none" stroke="#8A6A3E" stroke-width="1.3" opacity="0.55"/>
-        <path d="M88 336 L150 250 L212 336" fill="none" stroke="#8A6A3E" stroke-width="1.3" opacity="0.55"/>
-        <path d="M44 190 L88 336" fill="none" stroke="#8A6A3E" stroke-width="1" opacity="0.35"/>
-        <path d="M256 190 L212 336" fill="none" stroke="#8A6A3E" stroke-width="1" opacity="0.35"/>
-        <!-- twine tie + bow -->
-        <rect x="122" y="198" width="56" height="15" rx="7" fill="#8A6A3E" transform="rotate(-3 150 205)"/>
-        <path d="M150 205 C 134 196, 118 200, 118 214 C 118 224, 132 226, 142 216" fill="none" stroke="#6E5530" stroke-width="3.2" stroke-linecap="round"/>
-        <path d="M150 205 C 166 196, 182 200, 182 214 C 182 224, 168 226, 158 216" fill="none" stroke="#6E5530" stroke-width="3.2" stroke-linecap="round"/>
-        <circle cx="150" cy="207" r="4" fill="#6E5530"/>
+    <svg viewBox="0 0 300 340" width="100%" height="100%" style="display:block" xmlns="http://www.w3.org/2000/svg">
+      ${leaves}
+      ${roseMarkup}
+      <g>
+        <path d="M50 200 L250 200 L206 330 Q150 350 94 330 Z" fill="var(--kraft)" stroke="#8A6A3E" stroke-width="2"/>
+        <path d="M50 200 L150 256 L250 200" fill="none" stroke="#8A6A3E" stroke-width="1.2" opacity="0.5"/>
+        <path d="M94 330 L150 256 L206 330" fill="none" stroke="#8A6A3E" stroke-width="1.2" opacity="0.5"/>
+        <rect x="120" y="208" width="60" height="16" rx="8" fill="#B23A3A" transform="rotate(-3 150 216)"/>
+        <path d="M150 216 C 132 206, 114 210, 114 226 C 114 237, 130 239, 141 228" fill="none" stroke="#8C2A2A" stroke-width="4" stroke-linecap="round"/>
+        <path d="M150 216 C 168 206, 186 210, 186 226 C 186 237, 170 239, 159 228" fill="none" stroke="#8C2A2A" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="150" cy="218" r="4.5" fill="#7E2222"/>
       </g>
     </svg>`;
   }
 
-  function initFlowers() {
-    const stage = document.getElementById("bouquet-stage");
-    stage.innerHTML = bouquetSVG();
-
-    const leaves = Array.from(stage.querySelectorAll(".bq-leaf"));
-    leaves.forEach((leaf, i) => setTimeout(() => leaf.classList.add("is-shown"), i * 140));
-
-    const flowers = Array.from(stage.querySelectorAll(".bq-flower"));
-    const bloomStagger = 160;
-    flowers.forEach((f, i) => {
-      setTimeout(() => f.classList.add("is-bloomed"), 260 + i * bloomStagger);
-    });
-
-    // once everything has bloomed, the whole bouquet gets one gentle
-    // continuous sway (never removed, never fades back out)
-    const swayGroup = stage.querySelector(".bq-sway-group");
-    setTimeout(() => swayGroup.classList.add("is-swaying"), 260 + flowers.length * bloomStagger + 300);
-
-    const wrap = stage.querySelector("#bq-wrap");
-    setTimeout(() => wrap.classList.add("is-shown"), 120);
-
-    const notesWrap = document.getElementById("flower-notes");
-    const notes = (window.MEDIA && MEDIA.flowerNotes) || [];
-    const notesStart = 260 + flowers.length * bloomStagger + 400;
-    notes.forEach((note, i) => {
-      const p = document.createElement("p");
-      p.className = "flower-note";
-      p.textContent = note;
-      notesWrap.appendChild(p);
-      setTimeout(() => p.classList.add("is-shown"), notesStart + i * 200);
-    });
+  // ---------------------------------------------------------------
+  // Finale: cake, candle blow, birthday audio, then letter
+  // ---------------------------------------------------------------
+  function cakeSVG() {
+    return `
+    <svg viewBox="0 0 220 200" width="100%" height="100%" style="display:block" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="110" cy="184" rx="74" ry="8" fill="#221D17" opacity="0.08"/>
+      <g class="sparkle">
+        <path d="M150 46 L153 54 L161 57 L153 60 L150 68 L147 60 L139 57 L147 54 Z" fill="#E5A93B"/>
+      </g>
+      <g class="flame" id="flame">
+        <path d="M110 40 C 104 50 102 58 110 66 C 118 58 116 50 110 40 Z" fill="#C08B85"/>
+      </g>
+      <rect x="106" y="64" width="8" height="20" fill="#F8F0E1" stroke="#221D17" stroke-width="1.4"/>
+      <path d="M62 92 Q66 86 70 92 Q74 86 78 92 Q82 86 86 92 Q90 86 94 92 Q98 86 102 92 Q106 86 110 92 Q114 86 118 92 Q122 86 126 92 Q130 86 134 92 Q138 86 142 92 Q146 86 150 92 Q154 86 158 92"
+            fill="none" stroke="#221D17" stroke-width="1.4"/>
+      <rect x="62" y="92" width="96" height="34" rx="3" fill="#F8F0E1" stroke="#221D17" stroke-width="1.4"/>
+      <text x="110" y="114" text-anchor="middle" font-family="Caveat, cursive" font-size="15" fill="#221D17">Happy Birthday</text>
+      <path d="M40 126 Q45 119 50 126 Q55 119 60 126 Q65 119 70 126 Q75 119 80 126 Q85 119 90 126 Q95 119 100 126 Q105 119 110 126 Q115 119 120 126 Q125 119 130 126 Q135 119 140 126 Q145 119 150 126 Q155 119 160 126 Q165 119 170 126 Q175 119 180 126"
+            fill="none" stroke="#221D17" stroke-width="1.4"/>
+      <rect x="40" y="126" width="140" height="46" rx="3" fill="#F8F0E1" stroke="#221D17" stroke-width="1.4"/>
+      <ellipse cx="110" cy="176" rx="80" ry="8" fill="#F8F0E1" stroke="#221D17" stroke-width="1.4"/>
+    </svg>`;
   }
 
-  /* ---------------- Finale: the choreographed sequence ---------------- */
-
-  let finaleFired = false;
-
-  document.getElementById("finale-cake-btn").addEventListener("click", runFinale);
-
-  function runFinale() {
-    if (finaleFired) return;
-    finaleFired = true;
-
+  function initFinale() {
+    const cakeCard = document.getElementById("cake-card");
+    const letterCard = document.getElementById("letter-card");
+    const letterBody = document.getElementById("letter-body");
     const hint = document.getElementById("finale-hint");
-    hint.style.opacity = "0";
+    if (!cakeCard) return;
 
-    // 1. flame extinguishes + a soft burst of light for the "wow" moment
-    document.getElementById("flame-finale").classList.add("is-out");
-    document.getElementById("smoke-finale").classList.add("is-active");
-    document.getElementById("finale-glow").classList.add("is-burst");
+    if (letterBody) {
+      const body = (window.MEDIA && MEDIA.letter && MEDIA.letter.body) || "";
+      letterBody.textContent = body;
+    }
 
-    // 2. cake shrinks slightly and settles to the left
-    setTimeout(() => {
-      document.getElementById("finale-cake-slot").classList.add("is-shifted");
-    }, 260);
+    cakeCard.innerHTML = `
+      <button class="candle-tap" id="candle-tap" aria-label="Blow out the candle">
+        <div class="cake-wrap">${cakeSVG()}</div>
+      </button>
+      <p class="view-subtitle italic" style="margin-top:10px;margin-bottom:0;">tap this blow the candles</p>
+    `;
 
-    // 3. Happy Birthday audio plays
-    setTimeout(() => {
-      const audioEl = document.getElementById("hbd-audio");
+    const tapBtn = document.getElementById("candle-tap");
+    let blown = false;
+    tapBtn.addEventListener("click", () => {
+      if (blown) return;
+      blown = true;
+      const flame = document.getElementById("flame");
+      if (flame) flame.classList.add("is-out");
+      if (hint) hint.textContent = "happy birthday, Noy 🤍";
+
+      const audio = document.getElementById("hbd-audio");
       const src = window.MEDIA && MEDIA.happyBirthdayAudio && MEDIA.happyBirthdayAudio.src;
-      if (src) {
-        audioEl.src = src;
-        audioEl.play().catch(() => {
-          /* autoplay can be blocked until user gesture elsewhere on some browsers;
-             the tap that triggered runFinale should satisfy most, this is a safe no-op fallback */
-        });
+      if (audio && src) {
+        audio.src = src;
+        audio.play().catch(() => {});
       }
-    }, 500);
 
-    // 4. the letter unfurls in on the right, next to the cake
-    setTimeout(() => {
-      document.getElementById("finale-message-body").textContent =
-        (window.MEDIA && MEDIA.letter && MEDIA.letter.body) ||
-        "PLACEHOLDER — final birthday message goes here.";
-      document.getElementById("finale-message").classList.add("is-in");
-    }, 750);
+      setTimeout(() => {
+        letterCard.style.display = "block";
+        void letterCard.offsetWidth;
+        letterCard.classList.add("is-in");
+      }, 500);
+    });
   }
 
-  /* ---------------- utils ---------------- */
-
-  function escapeHTML(str) {
-    const div = document.createElement("div");
-    div.textContent = str;
-    return div.innerHTML;
-  }
+  // ---------------------------------------------------------------
+  // Boot
+  // ---------------------------------------------------------------
+  document.addEventListener("DOMContentLoaded", () => {
+    initPhotos();
+    initMusic();
+    initFlowers();
+    initFinale();
+  });
 })();
