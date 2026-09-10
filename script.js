@@ -82,15 +82,20 @@
   const initialized = new Set();
 
   function initPage(name) {
+    if (name === "finale") {
+      // not a one-time lazy init — reset the whole sequence every visit so
+      // it can be replayed from the menu as many times as they like
+      resetFinaleVisual();
+      return;
+    }
+
     if (initialized.has(name)) return;
     initialized.add(name);
 
     try {
       if (name === "photos") initPhotos();
       if (name === "music") initMusic();
-      if (name === "video") initVideo();
       if (name === "flowers") initFlowers();
-      if (name === "letter") initLetter();
     } catch (err) {
       // surface the real error on-page instead of a silent blank page —
       // makes any future bug screenshot-able and fixable immediately
@@ -205,77 +210,110 @@
     });
   }
 
-  /* ---------------- Video ---------------- */
-
-  function initVideo() {
-    const wrap = document.getElementById("video-wrap");
-    const v = (typeof MEDIA !== "undefined" && MEDIA.video) || {};
-
-    if (v.src) {
-      const video = document.createElement("video");
-      video.controls = true;
-      video.preload = "none"; // don't pull the ~50MB file until user presses play
-      video.poster = v.poster || "";
-      video.src = v.src;
-      wrap.appendChild(video);
-    } else {
-      const ph = document.createElement("div");
-      ph.className = "video-placeholder";
-      ph.textContent = "Video goes here once hosted (Supabase/Cloudinary/Streamable) — paste the public URL into MEDIA.video.src";
-      wrap.appendChild(ph);
-    }
-  }
-
   /* ---------------- Flowers: an actual wrapped bouquet ---------------- */
 
-  // one flower "bloom": a ring of petals around a center, sized/colored per spec
-  function flowerMarkup(cx, cy, size, petalColor, centerColor, petalCount) {
-    const petals = [];
-    for (let i = 0; i < petalCount; i++) {
-      const angle = (360 / petalCount) * i;
-      petals.push(
-        `<g transform="translate(${cx} ${cy}) rotate(${angle})">
-           <ellipse class="bq-petal" cx="0" cy="${-size * 0.68}" rx="${size * 0.36}" ry="${size * 0.55}" fill="${petalColor}"/>
-         </g>`
-      );
-    }
-    return `${petals.join("")}<circle cx="${cx}" cy="${cy}" r="${size * 0.32}" fill="${centerColor}"/>`;
+  // Realistic mixed bouquet: tulips, daffodils, and hyacinth clusters,
+  // fanned above a kraft-paper wrap — modeled on a real bouquet photo.
+
+  function tulipMarkup(cx, cy, size, color) {
+    return [-15, 0, 15].map((rot) => `
+      <g transform="translate(${cx} ${cy}) rotate(${rot})">
+        <path class="bq-petal" d="M0,2
+          C ${-size * 0.46},${-size * 0.3} ${-size * 0.34},${-size * 1.05} 0,${-size * 1.3}
+          C ${size * 0.34},${-size * 1.05} ${size * 0.46},${-size * 0.3} 0,2 Z"
+          fill="${color}"/>
+      </g>`).join("");
   }
 
-  // Bouquet layout: a handful of flowers of varied size/color at hand-placed
-  // positions, wrapped in paper, with a couple of leaves for realism.
+  function daffodilMarkup(cx, cy, size, petalColor, centerColor) {
+    const petals = [];
+    for (let i = 0; i < 6; i++) {
+      const angle = 60 * i;
+      petals.push(`
+        <g transform="translate(${cx} ${cy}) rotate(${angle})">
+          <ellipse class="bq-petal" cx="0" cy="${-size * 0.62}" rx="${size * 0.32}" ry="${size * 0.48}" fill="${petalColor}"/>
+        </g>`);
+    }
+    return petals.join("") +
+      `<ellipse class="bq-petal" cx="${cx}" cy="${cy - size * 0.06}" rx="${size * 0.3}" ry="${size * 0.24}" fill="${centerColor}"/>`;
+  }
+
+  function hyacinthMarkup(cx, cy, size, color) {
+    const dots = [];
+    const rows = 6;
+    for (let i = 0; i < rows; i++) {
+      const rowY = cy - i * size * 0.34;
+      const rowWidth = size * (1 - i / rows) * 1.1;
+      const count = Math.max(2, 5 - i);
+      for (let j = 0; j < count; j++) {
+        const t = count === 1 ? 0 : j / (count - 1) - 0.5;
+        const dx = t * rowWidth;
+        const jitter = (i % 2 === 0) ? size * 0.08 : -size * 0.08;
+        dots.push(`<circle class="bq-petal" cx="${cx + dx + jitter}" cy="${rowY}" r="${size * 0.15}" fill="${color}"/>`);
+      }
+    }
+    return dots.join("");
+  }
+
+  function fillerMarkup(cx, cy, size, color) {
+    const petals = [0, 90, 180, 270].map((rot) => `
+      <g transform="translate(${cx} ${cy}) rotate(${rot})">
+        <ellipse class="bq-petal" cx="0" cy="${-size * 0.5}" rx="${size * 0.26}" ry="${size * 0.36}" fill="${color}"/>
+      </g>`).join("");
+    return petals + `<circle class="bq-petal" cx="${cx}" cy="${cy}" r="${size * 0.2}" fill="#F2C94C"/>`;
+  }
+
+  function flowerGroupMarkup(f) {
+    if (f.type === "tulip") return tulipMarkup(f.cx, f.cy, f.size, f.color);
+    if (f.type === "daffodil") return daffodilMarkup(f.cx, f.cy, f.size, f.petal, f.center);
+    if (f.type === "hyacinth") return hyacinthMarkup(f.cx, f.cy, f.size, f.color);
+    if (f.type === "filler") return fillerMarkup(f.cx, f.cy, f.size, f.color);
+    return "";
+  }
+
+  // Fanned arrangement: taller stems toward the back-center, shorter and
+  // wider toward the sides, mixed colors like the reference bouquet.
   const BOUQUET_FLOWERS = [
-    { cx: 100, cy: 96,  size: 30, petals: "#9B7EDE", center: "#FFB86B", n: 6, r: -6 },
-    { cx: 150, cy: 88,  size: 26, petals: "#E8A9C4", center: "#FFE3B0", n: 6, r: 5 },
-    { cx: 70,  cy: 118, size: 24, petals: "#D9C9F0", center: "#7B5BC4", n: 5, r: -10 },
-    { cx: 180, cy: 116, size: 22, petals: "#B79AE8", center: "#FFB86B", n: 5, r: 9 },
-    { cx: 122, cy: 60,  size: 22, petals: "#FBF8FD", center: "#E8A9C4", n: 6, r: 2 },
-    { cx: 60,  cy: 78,  size: 18, petals: "#C7AEEF", center: "#7B5BC4", n: 5, r: -14 },
-    { cx: 190, cy: 76,  size: 18, petals: "#E8A9C4", center: "#9B7EDE", n: 5, r: 12 },
+    { type: "tulip",    cx: 126, cy: 66,  size: 26, color: "#7B5BC4", r: 0 },
+    { type: "tulip",    cx: 96,  cy: 78,  size: 26, color: "#B79AE8", r: -10 },
+    { type: "tulip",    cx: 156, cy: 78,  size: 26, color: "#F2C94C", r: 10 },
+    { type: "daffodil", cx: 68,  cy: 100, size: 22, petal: "#FBF8FD", center: "#F2C94C", r: -16 },
+    { type: "daffodil", cx: 186, cy: 98,  size: 22, petal: "#FBF8FD", center: "#F2C94C", r: 16 },
+    { type: "tulip",    cx: 112, cy: 104, size: 24, color: "#E8A9C4", r: -4 },
+    { type: "tulip",    cx: 142, cy: 104, size: 24, color: "#E8A9C4", r: 4 },
+    { type: "hyacinth", cx: 52,  cy: 90,  size: 15, color: "#9B7EDE", r: -20 },
+    { type: "hyacinth", cx: 200, cy: 88,  size: 15, color: "#7B5BC4", r: 20 },
+    { type: "filler",   cx: 84,  cy: 62,  size: 11, color: "#FBF8FD", r: 0 },
+    { type: "filler",   cx: 168, cy: 60,  size: 11, color: "#FBF8FD", r: 0 },
+    { type: "daffodil", cx: 126, cy: 118, size: 20, petal: "#F2C94C", center: "#7B5BC4", r: 0 },
   ];
 
   function bouquetSVG() {
     const flowersMarkup = BOUQUET_FLOWERS.map((f, i) => `
       <g class="bq-flower" id="bq-f${i}" style="--r:${f.r}deg">
-        ${flowerMarkup(f.cx, f.cy, f.size, f.petals, f.center, f.n)}
+        ${flowerGroupMarkup(f)}
       </g>`).join("");
 
     return `
     <svg viewBox="0 0 260 320" width="240" height="290" xmlns="http://www.w3.org/2000/svg">
       <!-- leaves, tucked behind the flowers -->
-      <path class="bq-leaf" id="bq-leaf1" style="--lr:-18deg" d="M75 150 C 40 140, 30 190, 55 215 C 60 180, 65 165, 75 150 Z" fill="var(--leaf)"/>
-      <path class="bq-leaf" id="bq-leaf2" style="--lr:16deg" d="M185 150 C 222 142, 232 190, 205 214 C 200 180, 194 164, 185 150 Z" fill="var(--leaf)"/>
-      <path class="bq-leaf" id="bq-leaf3" style="--lr:2deg" d="M130 140 C 130 175, 130 200, 130 230 C 118 200, 118 165, 130 140 Z" fill="var(--leaf)"/>
+      <path class="bq-leaf" id="bq-leaf1" style="--lr:-18deg" d="M75 150 C 38 138, 26 190, 52 218 C 58 182, 64 165, 75 150 Z" fill="var(--leaf)"/>
+      <path class="bq-leaf" id="bq-leaf2" style="--lr:16deg" d="M185 150 C 224 140, 236 190, 210 217 C 202 182, 195 164, 185 150 Z" fill="var(--leaf)"/>
+      <path class="bq-leaf" id="bq-leaf3" style="--lr:-4deg" d="M110 140 C 96 172, 96 200, 106 228 C 114 198, 116 166, 110 140 Z" fill="var(--leaf)"/>
+      <path class="bq-leaf" id="bq-leaf4" style="--lr:6deg" d="M148 140 C 160 172, 160 200, 150 228 C 142 198, 140 166, 148 140 Z" fill="var(--leaf)"/>
 
       <!-- flowers -->
       ${flowersMarkup}
 
-      <!-- paper wrap, in front over the stems -->
+      <!-- kraft paper wrap, in front over the stems -->
       <g class="bq-wrap" id="bq-wrap">
         <path d="M40 168 L220 168 L182 296 Q130 316 78 296 Z" fill="var(--wrap)" stroke="var(--wrap-line)" stroke-width="2"/>
-        <path d="M40 168 L130 220 L220 168" fill="none" stroke="var(--wrap-line)" stroke-width="1.4" opacity="0.6"/>
-        <path d="M78 296 L130 220 L182 296" fill="none" stroke="var(--wrap-line)" stroke-width="1.4" opacity="0.6"/>
-        <rect x="110" y="176" width="40" height="14" rx="7" fill="var(--accent-deep)" transform="rotate(-3 130 183)"/>
+        <path d="M40 168 L130 220 L220 168" fill="none" stroke="var(--wrap-line)" stroke-width="1.4" opacity="0.55"/>
+        <path d="M78 296 L130 220 L182 296" fill="none" stroke="var(--wrap-line)" stroke-width="1.4" opacity="0.55"/>
+        <!-- raffia tie -->
+        <rect x="103" y="180" width="54" height="11" rx="5.5" fill="var(--raffia)" transform="rotate(-2 130 185)"/>
+        <path d="M116 186 q-16 18 -6 36" fill="none" stroke="var(--raffia)" stroke-width="4" stroke-linecap="round"/>
+        <path d="M144 186 q16 18 6 36" fill="none" stroke="var(--raffia)" stroke-width="4" stroke-linecap="round"/>
       </g>
     </svg>`;
   }
@@ -316,18 +354,20 @@
     });
   }
 
-  /* ---------------- Letter ---------------- */
-
-  function initLetter() {
-    const body = (typeof MEDIA !== "undefined" && MEDIA.letter && MEDIA.letter.body) || "";
-    document.getElementById("letter-body").textContent = body;
-  }
-
   /* ---------------- Finale: the choreographed sequence ---------------- */
 
   let finaleFired = false;
 
   document.getElementById("finale-cake-btn").addEventListener("click", runFinale);
+
+  function resetFinaleVisual() {
+    document.getElementById("flame-finale").classList.remove("is-out");
+    document.getElementById("smoke-finale").classList.remove("is-active");
+    document.getElementById("finale-cake-slot").classList.remove("is-shifted");
+    document.getElementById("finale-message").classList.remove("is-in");
+    document.getElementById("finale-hint").style.opacity = "";
+    finaleFired = false;
+  }
 
   function runFinale() {
     if (finaleFired) return;

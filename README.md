@@ -42,10 +42,10 @@ done adding content (or keep them; they're harmless either way).
 
 ## Notes on the build
 - Photos lazy-load so the Photos page never pulls everything at once.
-- The video uses `preload="none"` — it only downloads once Noy presses play.
-- The finale (flame out → cake slides left → song plays → message slides in)
-  is one choreographed sequence, triggered once per visit.
-- The flowers page is a wrapped bouquet that blooms in and keeps a gentle
-  sway afterward.
-- Menu: 5 content cards (Photos / Music / Video / Flowers / Letter) + a
-  6th "One More Thing" card that leads to the candle-blow finale.
+- The menu has 4 cards: Photos, Music, Flowers, and Cake.
+- Tapping the Cake card takes you to the candle — tapping the candle blows
+  it out, slides the cake left, plays the Happy Birthday clip, and slides
+  the letter in from the right. It can be replayed anytime by going back to
+  the menu and opening Cake again.
+- The flowers page is a mixed bouquet (tulips, daffodils, hyacinth
+  clusters) wrapped in kraft paper, blooming in and swaying gently after.
