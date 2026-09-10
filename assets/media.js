@@ -85,4 +85,5 @@ Happy 21st, Noy.
 
 — Haki`,
   },
+   window.MEDIA = MEDIA;
 };
