@@ -9,7 +9,7 @@
 
   function cakeSVG(suffix) {
     return `
-    <svg viewBox="0 0 220 220" width="220" height="220" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 220 220" width="100%" height="100%" style="display:block" xmlns="http://www.w3.org/2000/svg">
       <ellipse cx="110" cy="188" rx="72" ry="10" fill="#1E1B16" opacity="0.06"/>
       <!-- plate -->
       <ellipse cx="110" cy="176" rx="66" ry="9" fill="#FBF4E3" stroke="#1E1B16" stroke-width="1.6"/>
@@ -111,7 +111,7 @@
       img.alt = photo.caption || `Photo ${i + 1}`;
       img.loading = "lazy"; // native lazy-load as a baseline
       img.width = 400;
-      img.height = 500;
+      img.height = 300;
       img.addEventListener("error", () => {
         card.classList.add("photo-card-broken");
         card.innerHTML = `<div class="photo-fallback">photo didn't load</div>`;
@@ -227,20 +227,29 @@
   }
 
   const CLUSTERS = [
-    { cx: 92,  cy: 108, color: "#B9A8D9", count: 9, spread: 24 },
-    { cx: 150, cy: 100, color: "#E9C97A", count: 8, spread: 22 },
-    { cx: 68,  cy: 138, color: "#FBF4E3", count: 7, spread: 20 },
-    { cx: 176, cy: 132, color: "#E3B0A9", count: 8, spread: 21 },
-    { cx: 122, cy: 128, color: "#E9B7BE", count: 7, spread: 19 },
-    { cx: 46,  cy: 116, color: "#D98C86", count: 6, spread: 16 },
-    { cx: 198, cy: 108, color: "#B9A8D9", count: 6, spread: 16 },
+    { cx: 96,  cy: 118, color: "#B9A8D9", count: 10, spread: 26 },
+    { cx: 168, cy: 108, color: "#E9C97A", count: 9,  spread: 24 },
+    { cx: 66,  cy: 148, color: "#FBF4E3", count: 8,  spread: 22 },
+    { cx: 200, cy: 142, color: "#E3B0A9", count: 9,  spread: 23 },
+    { cx: 132, cy: 138, color: "#E9B7BE", count: 8,  spread: 21 },
+    { cx: 40,  cy: 122, color: "#D98C86", count: 7,  spread: 18 },
+    { cx: 224, cy: 116, color: "#B9A8D9", count: 7,  spread: 18 },
+    { cx: 150, cy: 160, color: "#FBF4E3", count: 6,  spread: 17 },
+    { cx: 82,  cy: 90,  color: "#E9C97A", count: 6,  spread: 16 },
   ];
 
   const TULIPS = [
-    { cx: 100, topY: 46, stemLen: 60, color: "#E3B0A9" },
-    { cx: 140, topY: 38, stemLen: 68, color: "#FBF4E3" },
-    { cx: 122, topY: 58, stemLen: 48, color: "#E9C97A" },
+    { cx: 92,  topY: 40, stemLen: 66, color: "#B9A8D9" },
+    { cx: 132, topY: 26, stemLen: 82, color: "#FBF4E3" },
+    { cx: 168, topY: 42, stemLen: 64, color: "#E9C97A" },
+    { cx: 200, topY: 58, stemLen: 48, color: "#E3B0A9" },
+    { cx: 60,  topY: 62, stemLen: 46, color: "#E9B7BE" },
   ];
+
+  // a small pointed accent leaf, for tucking in among the blooms up top
+  function sprigLeaf(cx, cy, len, rot, color) {
+    return `<path d="M${cx} ${cy} Q${cx - len * 0.35} ${cy - len * 0.4} ${cx} ${cy - len} Q${cx + len * 0.35} ${cy - len * 0.4} ${cx} ${cy} Z" fill="${color}" stroke="#1E1B16" stroke-width="0.8" transform="rotate(${rot} ${cx} ${cy})" opacity="0.9"/>`;
+  }
 
   function bouquetSVG() {
     const clustersMarkup = CLUSTERS.map((c, i) => `
@@ -253,23 +262,39 @@
         ${tulipMarkup(t.cx, t.topY, t.stemLen, t.color)}
       </g>`).join("");
 
-    return `
-    <svg class="bq-sway-group" viewBox="0 0 260 320" width="240" height="290" xmlns="http://www.w3.org/2000/svg">
-      <!-- leaves, tucked behind the flowers -->
-      <path class="bq-leaf" id="bq-leaf1" style="--lr:-18deg" d="M75 150 C 40 140, 30 190, 55 215 C 60 180, 65 165, 75 150 Z" fill="#8FA37E" stroke="#1E1B16" stroke-width="1"/>
-      <path class="bq-leaf" id="bq-leaf2" style="--lr:16deg" d="M185 150 C 222 142, 232 190, 205 214 C 200 180, 194 164, 185 150 Z" fill="#8FA37E" stroke="#1E1B16" stroke-width="1"/>
-      <path class="bq-leaf" id="bq-leaf3" style="--lr:2deg" d="M130 140 C 130 175, 130 200, 130 230 C 118 200, 118 165, 130 140 Z" fill="#8FA37E" stroke="#1E1B16" stroke-width="1"/>
+    const sprigs = [
+      sprigLeaf(52, 128, 30, -25, "#8FA37E"),
+      sprigLeaf(238, 124, 28, 22, "#9CB18F"),
+      sprigLeaf(112, 78, 22, -10, "#8FA37E"),
+      sprigLeaf(188, 84, 22, 14, "#9CB18F"),
+    ].join("");
 
-      <!-- taller tulip accents, then the clustered spray in front -->
+    return `
+    <svg class="bq-sway-group" viewBox="0 0 300 360" width="100%" height="100%" style="display:block" xmlns="http://www.w3.org/2000/svg">
+      <!-- big leaves, tucked behind the flowers -->
+      <path class="bq-leaf" id="bq-leaf1" style="--lr:-18deg" d="M85 170 C 40 158, 24 220, 56 250 C 63 210, 70 190, 85 170 Z" fill="#8FA37E" stroke="#1E1B16" stroke-width="1"/>
+      <path class="bq-leaf" id="bq-leaf2" style="--lr:16deg" d="M215 170 C 262 160, 274 220, 240 250 C 233 210, 226 190, 215 170 Z" fill="#8FA37E" stroke="#1E1B16" stroke-width="1"/>
+      <path class="bq-leaf" id="bq-leaf3" style="--lr:2deg" d="M150 160 C 150 200, 150 230, 150 264 C 136 230, 136 190, 150 160 Z" fill="#8FA37E" stroke="#1E1B16" stroke-width="1"/>
+      <path class="bq-leaf" id="bq-leaf4" style="--lr:-8deg" d="M110 178 C 92 190, 88 218, 106 236 C 108 214, 112 196, 110 178 Z" fill="#9CB18F" stroke="#1E1B16" stroke-width="0.9"/>
+      <path class="bq-leaf" id="bq-leaf5" style="--lr:9deg" d="M192 178 C 210 190, 214 218, 196 236 C 194 214, 190 196, 192 178 Z" fill="#9CB18F" stroke="#1E1B16" stroke-width="0.9"/>
+
+      <!-- taller tulip accents, small sprigs, then the clustered spray in front -->
       ${tulipsMarkup}
+      ${sprigs}
       ${clustersMarkup}
 
       <!-- kraft paper wrap, in front over the stems -->
       <g class="bq-wrap" id="bq-wrap">
-        <path d="M38 166 L222 166 L184 298 Q130 318 76 298 Z" fill="#D8B888" stroke="#8A6A3E" stroke-width="2"/>
-        <path d="M38 166 L130 220 L222 166" fill="none" stroke="#8A6A3E" stroke-width="1.3" opacity="0.55"/>
-        <path d="M76 298 L130 220 L184 298" fill="none" stroke="#8A6A3E" stroke-width="1.3" opacity="0.55"/>
-        <rect x="108" y="174" width="44" height="13" rx="6" fill="#8A6A3E" transform="rotate(-3 130 181)"/>
+        <path d="M44 190 L256 190 L212 336 Q150 358 88 336 Z" fill="#D8B888" stroke="#8A6A3E" stroke-width="2"/>
+        <path d="M44 190 L150 250 L256 190" fill="none" stroke="#8A6A3E" stroke-width="1.3" opacity="0.55"/>
+        <path d="M88 336 L150 250 L212 336" fill="none" stroke="#8A6A3E" stroke-width="1.3" opacity="0.55"/>
+        <path d="M44 190 L88 336" fill="none" stroke="#8A6A3E" stroke-width="1" opacity="0.35"/>
+        <path d="M256 190 L212 336" fill="none" stroke="#8A6A3E" stroke-width="1" opacity="0.35"/>
+        <!-- twine tie + bow -->
+        <rect x="122" y="198" width="56" height="15" rx="7" fill="#8A6A3E" transform="rotate(-3 150 205)"/>
+        <path d="M150 205 C 134 196, 118 200, 118 214 C 118 224, 132 226, 142 216" fill="none" stroke="#6E5530" stroke-width="3.2" stroke-linecap="round"/>
+        <path d="M150 205 C 166 196, 182 200, 182 214 C 182 224, 168 226, 158 216" fill="none" stroke="#6E5530" stroke-width="3.2" stroke-linecap="round"/>
+        <circle cx="150" cy="207" r="4" fill="#6E5530"/>
       </g>
     </svg>`;
   }
