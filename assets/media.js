@@ -85,5 +85,7 @@ Happy 21st, Noy.
 
 — Haki`,
   },
-   window.MEDIA = MEDIA;
 };
+
+// explicit, in case anything ever references window.MEDIA directly
+window.MEDIA = MEDIA;
