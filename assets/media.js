@@ -1,14 +1,6 @@
 /* ============================================================
-   MEDIA CONFIG — hand-fixed by Claude on 2026-09-10.
-
-   Photos + Happy Birthday audio below now point at the real files
-   already sitting in your assets/photos and assets/audio folders.
-
-   Still needs your real content: MUSIC and LETTER sections below
-   are marked PLACEHOLDER — Studio never actually saved real values
-   for these before, so send me the real text/track info and I'll
-   fill it in, or open studio.html and fill just those two sections
-   yourself, then re-download and re-upload media.js only.
+   MEDIA CONFIG — filled in by Claude on 2026-09-10.
+   Photos, audio, music, flowers, and the letter are all real now.
    ============================================================ */
 
 const MEDIA = {
@@ -65,47 +57,46 @@ const MEDIA = {
   },
 
   // ---- MUSIC PAGE -------------------------------------------------
-  // STILL PLACEHOLDER — send me the real featured track (title,
-  // artist, embed URL) and tracklist, or fill this in yourself via
-  // studio.html's Music section.
   music: {
     featured: {
-      title: "PLACEHOLDER — Featured Track Title",
-      artist: "Artist Name",
-      embedUrl: "", // e.g. a Spotify/YouTube embed URL
+      title: "Lifetime (Reimagined)",
+      artist: "Ben&Ben",
+      embedUrl: "", // add a Spotify/YouTube embed URL later if you want it
     },
     tracklist: [
-      { title: "Track 1 — placeholder", artist: "Artist" },
-      { title: "Track 2 — placeholder", artist: "Artist" },
-      { title: "Track 3 — placeholder", artist: "Artist" },
-      { title: "Track 4 — placeholder", artist: "Artist" },
-      { title: "Track 5 — placeholder", artist: "Artist" },
+      { title: "From The Start", artist: "Laufey" },
+      { title: "Walang Kapalit", artist: "Arthur Nery" },
+      { title: "Just Friends", artist: "Jordy Searcy" },
     ],
   },
 
   // ---- FLOWERS: affirmation notes ----------------------------------
   flowerNotes: [
-    "You make every room warmer just by being in it.",
-    "Twenty-one years of you, and the world's better for all of them.",
+    "I'm glad our paths crossed..",
+    "Happy birthday to a truly wonderful friend.",
     "Here's to the person who always shows up for everyone else — today's for you.",
-    "Still the easiest person to laugh with, no matter how far apart we are.",
+    "I'm lucky to call you my friend.",
     "So proud of who you're becoming. Keep going.",
   ],
 
   // ---- LETTER (read into the Cake finale) --------------------------
-  // STILL PLACEHOLDER — send me the real letter text and I'll drop
-  // it straight in, or fill it in yourself via studio.html.
   letter: {
     body:
-`PLACEHOLDER — Haki's letter to Noy goes here.
+`Dear Noy,
 
-Replace this text with the real message. It can be as long as you want —
-the page scrolls, and the serif type is set to stay easy to read even
-for a longer letter.
+I wish you the happiest birthday! Thank you always for everything, and thank you for being my friend.
 
-Happy 21st, Noy.
+I know sometimes I purposely don't talk to you or I suddenly become quiet, and I think you probably noticed that. HAHAHAHA. I don't always know how to act around you, especially after everything that happened before. Things became a little awkward between us, and I know sometimes I also contribute to that. I'm sorry if there were times I made you feel like I didn't want to talk to you or be around you. It's not because I don't appreciate you. Sometimes I just don't know how to act.
 
-— Haki`,
+Despite all that, I'm really thankful that we're still friends.
+
+Thank you for being my mauutangan friend whenever I'm out of money. HAHAHAHA. Thank you rin sa mga hatid-sundo, sa pagsama sa mga gala, sa random bonding, sa paglalaro ng ML, and for all the little things you've done for me. I might not always say it, but I genuinely appreciate them.
+
+We've already made a lot of memories together, and I'm glad that even after everything, we're still able to talk, laugh, and spend time together. I hope we can continue making more memories, even if most of them are probably going to be random and chaotic. HAHAHAHA.
+
+I hope you have a really good birthday. I wish you good health, happiness, success, and more good things in life. And sana mas dumami pa pera mo para may mauutangan pa ako. HAHAHAHAHA.
+
+Happy birthday, Noy! Thank you for being my friend. 🤍`,
   },
 };
 
