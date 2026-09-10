@@ -87,9 +87,7 @@
 
     if (name === "photos") initPhotos();
     if (name === "music") initMusic();
-    if (name === "video") initVideo();
     if (name === "flowers") initFlowers();
-    if (name === "letter") initLetter();
   }
 
   /* ---------------- Photos: lazy-loaded scattered gallery + lightbox ---------------- */
@@ -97,6 +95,11 @@
   function initPhotos() {
     const grid = document.getElementById("photo-grid");
     const photos = (window.MEDIA && MEDIA.photos) || [];
+
+    if (photos.length === 0) {
+      grid.innerHTML = `<p class="empty-note">photos will show up here once they're added — check that assets/media.js on the live site actually has your photos array filled in.</p>`;
+      return;
+    }
 
     photos.forEach((photo, i) => {
       const card = document.createElement("button");
@@ -178,7 +181,11 @@
     }
 
     const list = document.getElementById("tracklist");
-    (m.tracklist || []).forEach((track, i) => {
+    const tracks = m.tracklist || [];
+    if (tracks.length === 0) {
+      list.innerHTML = `<li class="empty-note">no tracks yet — add some in Studio's Music section and make sure assets/media.js on the live site got updated.</li>`;
+    }
+    tracks.forEach((track, i) => {
       const li = document.createElement("li");
       li.innerHTML = `
         <span class="track-index">${String(i + 1).padStart(2, "0")}</span>
@@ -190,77 +197,79 @@
     });
   }
 
-  /* ---------------- Video ---------------- */
-
-  function initVideo() {
-    const wrap = document.getElementById("video-wrap");
-    const v = (window.MEDIA && MEDIA.video) || {};
-
-    if (v.src) {
-      const video = document.createElement("video");
-      video.controls = true;
-      video.preload = "none"; // don't pull the ~50MB file until user presses play
-      video.poster = v.poster || "";
-      video.src = v.src;
-      wrap.appendChild(video);
-    } else {
-      const ph = document.createElement("div");
-      ph.className = "video-placeholder";
-      ph.textContent = "Video goes here once hosted (Supabase/Cloudinary/Streamable) — paste the public URL into MEDIA.video.src";
-      wrap.appendChild(ph);
-    }
-  }
-
   /* ---------------- Flowers: an actual wrapped bouquet ---------------- */
 
-  // one flower "bloom": a ring of petals around a center, sized/colored per spec
-  function flowerMarkup(cx, cy, size, petalColor, centerColor, petalCount) {
-    const petals = [];
-    for (let i = 0; i < petalCount; i++) {
-      const angle = (360 / petalCount) * i;
-      petals.push(
-        `<g transform="translate(${cx} ${cy}) rotate(${angle})">
-           <ellipse class="bq-petal" cx="0" cy="${-size * 0.68}" rx="${size * 0.36}" ry="${size * 0.55}" fill="${petalColor}" stroke="#1E1B16" stroke-width="1"/>
-         </g>`
-      );
+  // a small cluster of overlapping rounded petals — reads like a hyacinth /
+  // hydrangea spray of tiny blooms rather than one big flat flower
+  function clusterMarkup(cx, cy, color, count, spread) {
+    let out = "";
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2 + (i % 2) * 0.3;
+      const dist = spread * (0.35 + 0.65 * ((i * 53) % 100) / 100);
+      const x = cx + Math.cos(angle) * dist;
+      const y = cy + Math.sin(angle) * dist * 0.85;
+      const r = spread * 0.32 * (0.75 + ((i * 37) % 100) / 200);
+      out += `<circle class="bq-dot" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="${color}" stroke="#1E1B16" stroke-width="0.8"/>`;
     }
-    return `${petals.join("")}<circle cx="${cx}" cy="${cy}" r="${size * 0.32}" fill="${centerColor}" stroke="#1E1B16" stroke-width="1"/>`;
+    return out;
   }
 
-  // Bouquet layout: a handful of flowers of varied size/color at hand-placed
-  // positions, wrapped in paper, with a couple of leaves for realism.
-  const BOUQUET_FLOWERS = [
-    { cx: 100, cy: 96,  size: 30, petals: "#FBF4E3", center: "#D98C86", n: 6, r: -6 },
-    { cx: 150, cy: 88,  size: 26, petals: "#E9C6C2", center: "#F3E8D2", n: 6, r: 5 },
-    { cx: 70,  cy: 118, size: 24, petals: "#F3E8D2", center: "#D98C86", n: 5, r: -10 },
-    { cx: 180, cy: 116, size: 22, petals: "#FBF4E3", center: "#8FA37E", n: 5, r: 9 },
-    { cx: 122, cy: 60,  size: 22, petals: "#FBF4E3", center: "#E9C6C2", n: 6, r: 2 },
-    { cx: 60,  cy: 78,  size: 18, petals: "#E9C6C2", center: "#D98C86", n: 5, r: -14 },
-    { cx: 190, cy: 76,  size: 18, petals: "#F3E8D2", center: "#8FA37E", n: 5, r: 12 },
+  // a single tulip-cup bloom on a thin stem, for taller accents poking above the spray
+  function tulipMarkup(cx, topY, stemLen, color) {
+    const bottomY = topY + stemLen;
+    return `
+      <line x1="${cx}" y1="${topY + 22}" x2="${cx}" y2="${bottomY}" stroke="#8FA37E" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M${cx - 11} ${topY + 20} Q${cx - 13} ${topY + 2} ${cx - 5} ${topY - 6}
+               Q${cx} ${topY - 10} ${cx + 5} ${topY - 6}
+               Q${cx + 13} ${topY + 2} ${cx + 11} ${topY + 20}
+               Q${cx} ${topY + 26} ${cx - 11} ${topY + 20} Z"
+            fill="${color}" stroke="#1E1B16" stroke-width="1"/>`;
+  }
+
+  const CLUSTERS = [
+    { cx: 92,  cy: 108, color: "#B9A8D9", count: 9, spread: 24 },
+    { cx: 150, cy: 100, color: "#E9C97A", count: 8, spread: 22 },
+    { cx: 68,  cy: 138, color: "#FBF4E3", count: 7, spread: 20 },
+    { cx: 176, cy: 132, color: "#E3B0A9", count: 8, spread: 21 },
+    { cx: 122, cy: 128, color: "#E9B7BE", count: 7, spread: 19 },
+    { cx: 46,  cy: 116, color: "#D98C86", count: 6, spread: 16 },
+    { cx: 198, cy: 108, color: "#B9A8D9", count: 6, spread: 16 },
+  ];
+
+  const TULIPS = [
+    { cx: 100, topY: 46, stemLen: 60, color: "#E3B0A9" },
+    { cx: 140, topY: 38, stemLen: 68, color: "#FBF4E3" },
+    { cx: 122, topY: 58, stemLen: 48, color: "#E9C97A" },
   ];
 
   function bouquetSVG() {
-    const flowersMarkup = BOUQUET_FLOWERS.map((f, i) => `
-      <g class="bq-flower" id="bq-f${i}" style="--r:${f.r}deg">
-        ${flowerMarkup(f.cx, f.cy, f.size, f.petals, f.center, f.n)}
+    const clustersMarkup = CLUSTERS.map((c, i) => `
+      <g class="bq-flower" id="bq-f${i}">
+        ${clusterMarkup(c.cx, c.cy, c.color, c.count, c.spread)}
+      </g>`).join("");
+
+    const tulipsMarkup = TULIPS.map((t, i) => `
+      <g class="bq-flower" id="bq-t${i}">
+        ${tulipMarkup(t.cx, t.topY, t.stemLen, t.color)}
       </g>`).join("");
 
     return `
-    <svg viewBox="0 0 260 320" width="240" height="290" xmlns="http://www.w3.org/2000/svg">
+    <svg class="bq-sway-group" viewBox="0 0 260 320" width="240" height="290" xmlns="http://www.w3.org/2000/svg">
       <!-- leaves, tucked behind the flowers -->
-      <path class="bq-leaf" id="bq-leaf1" style="--lr:-18deg" d="M75 150 C 40 140, 30 190, 55 215 C 60 180, 65 165, 75 150 Z" fill="var(--leaf)"/>
-      <path class="bq-leaf" id="bq-leaf2" style="--lr:16deg" d="M185 150 C 222 142, 232 190, 205 214 C 200 180, 194 164, 185 150 Z" fill="var(--leaf)"/>
-      <path class="bq-leaf" id="bq-leaf3" style="--lr:2deg" d="M130 140 C 130 175, 130 200, 130 230 C 118 200, 118 165, 130 140 Z" fill="var(--leaf)"/>
+      <path class="bq-leaf" id="bq-leaf1" style="--lr:-18deg" d="M75 150 C 40 140, 30 190, 55 215 C 60 180, 65 165, 75 150 Z" fill="#8FA37E" stroke="#1E1B16" stroke-width="1"/>
+      <path class="bq-leaf" id="bq-leaf2" style="--lr:16deg" d="M185 150 C 222 142, 232 190, 205 214 C 200 180, 194 164, 185 150 Z" fill="#8FA37E" stroke="#1E1B16" stroke-width="1"/>
+      <path class="bq-leaf" id="bq-leaf3" style="--lr:2deg" d="M130 140 C 130 175, 130 200, 130 230 C 118 200, 118 165, 130 140 Z" fill="#8FA37E" stroke="#1E1B16" stroke-width="1"/>
 
-      <!-- flowers -->
-      ${flowersMarkup}
+      <!-- taller tulip accents, then the clustered spray in front -->
+      ${tulipsMarkup}
+      ${clustersMarkup}
 
-      <!-- paper wrap, in front over the stems -->
+      <!-- kraft paper wrap, in front over the stems -->
       <g class="bq-wrap" id="bq-wrap">
-        <path d="M40 168 L220 168 L182 296 Q130 316 78 296 Z" fill="var(--wrap)" stroke="var(--wrap-line)" stroke-width="2"/>
-        <path d="M40 168 L130 220 L220 168" fill="none" stroke="var(--wrap-line)" stroke-width="1.4" opacity="0.6"/>
-        <path d="M78 296 L130 220 L182 296" fill="none" stroke="var(--wrap-line)" stroke-width="1.4" opacity="0.6"/>
-        <rect x="110" y="176" width="40" height="14" rx="7" fill="var(--accent-deep)" transform="rotate(-3 130 183)"/>
+        <path d="M38 166 L222 166 L184 298 Q130 318 76 298 Z" fill="#D8B888" stroke="#8A6A3E" stroke-width="2"/>
+        <path d="M38 166 L130 220 L222 166" fill="none" stroke="#8A6A3E" stroke-width="1.3" opacity="0.55"/>
+        <path d="M76 298 L130 220 L184 298" fill="none" stroke="#8A6A3E" stroke-width="1.3" opacity="0.55"/>
+        <rect x="108" y="174" width="44" height="13" rx="6" fill="#8A6A3E" transform="rotate(-3 130 181)"/>
       </g>
     </svg>`;
   }
@@ -273,25 +282,22 @@
     leaves.forEach((leaf, i) => setTimeout(() => leaf.classList.add("is-shown"), i * 140));
 
     const flowers = Array.from(stage.querySelectorAll(".bq-flower"));
-    const bloomStagger = 190;
+    const bloomStagger = 160;
     flowers.forEach((f, i) => {
-      setTimeout(() => {
-        f.classList.add("is-bloomed");
-        // once bloomed, ease into a gentle continuous sway so the bouquet feels alive
-        const swayDur = 3600 + Math.round(Math.random() * 1800);
-        const swayDelay = Math.round(Math.random() * 600);
-        f.style.setProperty("--sway-dur", swayDur + "ms");
-        f.style.setProperty("--sway-delay", swayDelay + "ms");
-        setTimeout(() => f.classList.add("is-swaying"), 780);
-      }, 260 + i * bloomStagger);
+      setTimeout(() => f.classList.add("is-bloomed"), 260 + i * bloomStagger);
     });
+
+    // once everything has bloomed, the whole bouquet gets one gentle
+    // continuous sway (never removed, never fades back out)
+    const swayGroup = stage.querySelector(".bq-sway-group");
+    setTimeout(() => swayGroup.classList.add("is-swaying"), 260 + flowers.length * bloomStagger + 300);
 
     const wrap = stage.querySelector("#bq-wrap");
     setTimeout(() => wrap.classList.add("is-shown"), 120);
 
     const notesWrap = document.getElementById("flower-notes");
     const notes = (window.MEDIA && MEDIA.flowerNotes) || [];
-    const notesStart = 260 + flowers.length * bloomStagger + 200;
+    const notesStart = 260 + flowers.length * bloomStagger + 400;
     notes.forEach((note, i) => {
       const p = document.createElement("p");
       p.className = "flower-note";
@@ -299,13 +305,6 @@
       notesWrap.appendChild(p);
       setTimeout(() => p.classList.add("is-shown"), notesStart + i * 200);
     });
-  }
-
-  /* ---------------- Letter ---------------- */
-
-  function initLetter() {
-    const body = (window.MEDIA && MEDIA.letter && MEDIA.letter.body) || "";
-    document.getElementById("letter-body").textContent = body;
   }
 
   /* ---------------- Finale: the choreographed sequence ---------------- */
@@ -321,11 +320,12 @@
     const hint = document.getElementById("finale-hint");
     hint.style.opacity = "0";
 
-    // 1. flame extinguishes
+    // 1. flame extinguishes + a soft burst of light for the "wow" moment
     document.getElementById("flame-finale").classList.add("is-out");
     document.getElementById("smoke-finale").classList.add("is-active");
+    document.getElementById("finale-glow").classList.add("is-burst");
 
-    // 2. cake slides left
+    // 2. cake shrinks slightly and settles to the left
     setTimeout(() => {
       document.getElementById("finale-cake-slot").classList.add("is-shifted");
     }, 260);
@@ -343,13 +343,13 @@
       }
     }, 500);
 
-    // 4. message box slides in with the final message
+    // 4. the letter unfurls in on the right, next to the cake
     setTimeout(() => {
       document.getElementById("finale-message-body").textContent =
         (window.MEDIA && MEDIA.letter && MEDIA.letter.body) ||
         "PLACEHOLDER — final birthday message goes here.";
       document.getElementById("finale-message").classList.add("is-in");
-    }, 900);
+    }, 750);
   }
 
   /* ---------------- utils ---------------- */
